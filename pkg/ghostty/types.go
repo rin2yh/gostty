@@ -4,17 +4,17 @@ package ghostty
 type Mods int
 
 const (
-	ModsNone        Mods = 0
-	ModsShift       Mods = 1 << 0
-	ModsCtrl        Mods = 1 << 1
-	ModsAlt         Mods = 1 << 2
-	ModsSuper       Mods = 1 << 3
-	ModsCaps        Mods = 1 << 4
-	ModsNum         Mods = 1 << 5
-	ModsShiftRight  Mods = 1 << 6
-	ModsCtrlRight   Mods = 1 << 7
-	ModsAltRight    Mods = 1 << 8
-	ModsSuperRight  Mods = 1 << 9
+	ModsNone       Mods = 0
+	ModsShift      Mods = 1 << 0
+	ModsCtrl       Mods = 1 << 1
+	ModsAlt        Mods = 1 << 2
+	ModsSuper      Mods = 1 << 3
+	ModsCaps       Mods = 1 << 4
+	ModsNum        Mods = 1 << 5
+	ModsShiftRight Mods = 1 << 6
+	ModsCtrlRight  Mods = 1 << 7
+	ModsAltRight   Mods = 1 << 8
+	ModsSuperRight Mods = 1 << 9
 )
 
 // InputAction represents a key event action (ghostty_input_action_e).
@@ -100,7 +100,7 @@ type Target struct {
 type ActionTag int
 
 const (
-	ActionQuit                  ActionTag = iota
+	ActionQuit ActionTag = iota
 	ActionNewWindow
 	ActionNewTab
 	ActionCloseTab
