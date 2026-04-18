@@ -21,10 +21,8 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Install Metal Toolchain
-        run: |
-          sudo xcodebuild -runFirstLaunch
-          xcodebuild -downloadComponent MetalToolchain
+      - name: Xcode first-launch
+        run: sudo xcodebuild -runFirstLaunch
 
       - name: Build ghostty static library
         working-directory: ghostty
