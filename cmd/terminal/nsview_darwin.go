@@ -31,7 +31,6 @@ var (
 	sel_addSubview          = objc.RegisterName("addSubview:")
 	sel_setFrame            = objc.RegisterName("setFrame:")
 	sel_removeFromSuperview = objc.RegisterName("removeFromSuperview")
-	sel_setWantsLayer       = objc.RegisterName("setWantsLayer:")
 )
 
 func init() {
@@ -68,7 +67,9 @@ func createNSView(x, y, w, h float64) objc.ID {
 	r := nsRect{nsPoint{x, y}, nsSize{w, h}}
 	view := objc.ID(class_NSView).Send(sel_alloc)
 	view = objc.Send[objc.ID](view, sel_initWithFrame, r)
-	view.Send(sel_setWantsLayer, true)
+	// NOTE: setWantsLayer は呼ばない。ghostty_surface_new 内で
+	//       layer を IOSurfaceLayer に差し替えた "後" に wantsLayer=YES される仕様のため、
+	//       ここで先に呼ぶと layer-backed view としての内部状態が残り描画が不定になる。
 	cv.Send(sel_addSubview, view)
 	return view
 }

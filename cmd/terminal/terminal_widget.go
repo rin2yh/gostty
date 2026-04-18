@@ -5,6 +5,8 @@ package main
 import (
 	"fmt"
 	"image"
+	"log"
+	"os"
 	"sync"
 	"unsafe"
 
@@ -14,6 +16,15 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/rin2yh/gostty/pkg/ghostty"
 )
+
+var debugEnabled = os.Getenv("GOSTTY_DEBUG") != ""
+
+func debugf(format string, args ...any) {
+	if !debugEnabled {
+		return
+	}
+	log.Printf("[gostty] "+format, args...)
+}
 
 var ebitenToGhosttyKey = map[ebiten.Key]ghostty.Key{
 	// Writing system keys
@@ -195,25 +206,41 @@ func (t *TerminalWidget) initSurface(ctx *guigui.Context) error {
 	if cw <= 0 || ch <= 0 {
 		cw, ch = 512, 384
 	}
+	debugf("initSurface: contentView size = (%.0f, %.0f), scale = %.2f", cw, ch, scale)
 
-	t.nsViewID = createNSView(0, 0, cw, ch)
-	if t.nsViewID == 0 {
-		return fmt.Errorf("failed to create NSView")
-	}
+	var (
+		viewID  objc.ID
+		surface *ghostty.Surface
+		initErr error
+	)
+	ebiten.RunOnMainThread(func() {
+		viewID = createNSView(0, 0, cw, ch)
+		if viewID == 0 {
+			initErr = fmt.Errorf("failed to create NSView")
+			return
+		}
+		debugf("createNSView: nsview id = 0x%x", uintptr(viewID))
 
-	// ObjC handle is not a Go pointer; bitcast via intermediate *unsafe.Pointer to avoid unsafeptr vet warning.
-	nsview := *(*unsafe.Pointer)(unsafe.Pointer(&t.nsViewID))
-	surface, err := ghostty.NewSurface(t.app, ghostty.SurfaceConfig{
-		NSView:      nsview,
-		ScaleFactor: scale,
+		// ObjC handle is not a Go pointer; bitcast via intermediate *unsafe.Pointer to avoid unsafeptr vet warning.
+		nsview := *(*unsafe.Pointer)(unsafe.Pointer(&viewID))
+		s, err := ghostty.NewSurface(t.app, ghostty.SurfaceConfig{
+			NSView:      nsview,
+			ScaleFactor: scale,
+		})
+		if err != nil {
+			removeNSView(viewID)
+			viewID = 0
+			initErr = fmt.Errorf("ghostty surface: %w", err)
+			return
+		}
+		surface = s
 	})
-	if err != nil {
-		removeNSView(t.nsViewID)
-		t.nsViewID = 0
-		return fmt.Errorf("ghostty surface: %w", err)
+	if initErr != nil {
+		return initErr
 	}
-	t.surface = surface
 
+	t.nsViewID = viewID
+	t.surface = surface
 	t.surface.SetSize(uint32(cw*scale), uint32(ch*scale))
 	t.surface.SetFocus(true)
 
@@ -241,12 +268,19 @@ func (t *TerminalWidget) Tick(ctx *guigui.Context, wb *guigui.WidgetBounds) erro
 		y := ch - float64(bounds.Max.Y)/scale
 		w := float64(bounds.Dx()) / scale
 		h := float64(bounds.Dy()) / scale
-		updateNSViewFrame(t.nsViewID, x, y, w, h)
+		debugf("bounds changed: x=%.1f y=%.1f w=%.1f h=%.1f", x, y, w, h)
+		viewID := t.nsViewID
+		ebiten.RunOnMainThread(func() {
+			updateNSViewFrame(viewID, x, y, w, h)
+		})
 
 		t.surface.SetSize(uint32(bounds.Dx()), uint32(bounds.Dy()))
 		t.surface.SetContentScale(scale, scale)
 	}
 
+	// NOTE: surface.Draw() はメインスレッドに移さない。
+	//       ghostty の IOSurfaceLayer.setSurface が内部で必要に応じて
+	//       main queue に dispatch_async するため、毎フレーム同期ディスパッチすると UI が詰まる。
 	t.surface.Draw()
 	guigui.RequestRedraw(t)
 	return nil
@@ -331,12 +365,21 @@ func (t *TerminalWidget) Draw(ctx *guigui.Context, wb *guigui.WidgetBounds, dst 
 }
 
 func (t *TerminalWidget) Dispose() {
-	if t.nsViewID != 0 {
-		removeNSView(t.nsViewID)
-		t.nsViewID = 0
+	viewID := t.nsViewID
+	surface := t.surface
+	t.nsViewID = 0
+	t.surface = nil
+	if viewID == 0 && surface == nil {
+		return
 	}
-	if t.surface != nil {
-		t.surface.Free()
-		t.surface = nil
-	}
+	// surface.Free と removeNSView を同じ main thread closure で順序保証する。
+	// IOSurfaceLayer 側の dispatch_async が view 解放後に走らないようにするため。
+	ebiten.RunOnMainThread(func() {
+		if surface != nil {
+			surface.Free()
+		}
+		if viewID != 0 {
+			removeNSView(viewID)
+		}
+	})
 }
