@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/guigui-gui/guigui"
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/rin2yh/gostty/pkg/ghostty"
 )
 
@@ -59,6 +60,7 @@ func main() {
 		WindowSize:    image.Pt(1024, 768),
 		WindowMinSize: image.Pt(400, 300),
 	}
+	ebiten.SetWindowClosingHandled(true)
 	if err := guigui.Run(root, op); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

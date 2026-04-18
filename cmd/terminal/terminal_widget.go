@@ -249,6 +249,11 @@ func (t *TerminalWidget) initSurface(ctx *guigui.Context) error {
 }
 
 func (t *TerminalWidget) Tick(ctx *guigui.Context, wb *guigui.WidgetBounds) error {
+	if ebiten.IsWindowBeingClosed() {
+		t.Dispose()
+		return ebiten.Termination
+	}
+
 	select {
 	case <-t.wakeupCh:
 	default:
