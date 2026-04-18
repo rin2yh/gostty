@@ -1,0 +1,6 @@
+[submodule "ghostty"]
+	path = ghostty
+	url = https://github.com/ghostty-org/ghostty
+[submodule "guigui"]
+	path = guigui
+	url = https://github.com/guigui-gui/guigui
