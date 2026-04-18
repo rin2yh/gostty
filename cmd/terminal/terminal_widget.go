@@ -8,6 +8,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/ebitengine/purego/objc"
 	"github.com/guigui-gui/guigui"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -165,7 +166,7 @@ type TerminalWidget struct {
 	surfaceErr  error
 	app         *ghostty.App
 	surface     *ghostty.Surface
-	nsViewPtr   unsafe.Pointer
+	nsViewID    objc.ID
 	lastBounds  image.Rectangle
 
 	wakeupCh         chan struct{}
@@ -175,7 +176,7 @@ type TerminalWidget struct {
 }
 
 func (t *TerminalWidget) Build(ctx *guigui.Context, adder *guigui.ChildAdder) error {
-	if !hasMainWindow() {
+	if mainWindowContentView() == 0 {
 		return nil
 	}
 	t.surfaceOnce.Do(func() {
@@ -195,13 +196,15 @@ func (t *TerminalWidget) initSurface(ctx *guigui.Context) error {
 		cw, ch = 512, 384
 	}
 
-	t.nsViewPtr = createNSView(0, 0, cw, ch)
-	if t.nsViewPtr == nil {
+	t.nsViewID = createNSView(0, 0, cw, ch)
+	if t.nsViewID == 0 {
 		return fmt.Errorf("failed to create NSView")
 	}
 
+	// ObjC handle is not a Go pointer; bitcast via intermediate *unsafe.Pointer to avoid unsafeptr vet warning.
+	nsview := *(*unsafe.Pointer)(unsafe.Pointer(&t.nsViewID))
 	surface, err := ghostty.NewSurface(t.app, ghostty.SurfaceConfig{
-		NSView:      t.nsViewPtr,
+		NSView:      nsview,
 		ScaleFactor: scale,
 	})
 	if err != nil {
@@ -236,7 +239,7 @@ func (t *TerminalWidget) Tick(ctx *guigui.Context, wb *guigui.WidgetBounds) erro
 		y := ch - float64(bounds.Max.Y)/scale
 		w := float64(bounds.Dx()) / scale
 		h := float64(bounds.Dy()) / scale
-		updateNSViewFrame(t.nsViewPtr, x, y, w, h)
+		updateNSViewFrame(t.nsViewID, x, y, w, h)
 
 		t.surface.SetSize(uint32(bounds.Dx()), uint32(bounds.Dy()))
 		t.surface.SetContentScale(scale, scale)
@@ -255,24 +258,23 @@ func (t *TerminalWidget) HandleButtonInput(ctx *guigui.Context, wb *guigui.Widge
 	mods := currentMods()
 
 	t.justPressedKeys = inpututil.AppendJustPressedKeys(t.justPressedKeys[:0])
-	for _, key := range t.justPressedKeys {
-		if gk, ok := ebitenToGhosttyKey[key]; ok {
-			t.surface.Key(ghostty.KeyEvent{
-				Action:  ghostty.InputActionPress,
-				Mods:    mods,
-				Keycode: uint32(gk),
-			})
-		}
-	}
-
 	t.justReleasedKeys = inpututil.AppendJustReleasedKeys(t.justReleasedKeys[:0])
-	for _, key := range t.justReleasedKeys {
-		if gk, ok := ebitenToGhosttyKey[key]; ok {
-			t.surface.Key(ghostty.KeyEvent{
-				Action:  ghostty.InputActionRelease,
-				Mods:    mods,
-				Keycode: uint32(gk),
-			})
+	type keyBatch struct {
+		keys   []ebiten.Key
+		action ghostty.InputAction
+	}
+	for _, b := range [2]keyBatch{
+		{t.justPressedKeys, ghostty.InputActionPress},
+		{t.justReleasedKeys, ghostty.InputActionRelease},
+	} {
+		for _, key := range b.keys {
+			if gk, ok := ebitenToGhosttyKey[key]; ok {
+				t.surface.Key(ghostty.KeyEvent{
+					Action:  b.action,
+					Mods:    mods,
+					Keycode: uint32(gk),
+				})
+			}
 		}
 	}
 
@@ -323,5 +325,16 @@ func (t *TerminalWidget) HandlePointingInput(ctx *guigui.Context, wb *guigui.Wid
 }
 
 func (t *TerminalWidget) Draw(ctx *guigui.Context, wb *guigui.WidgetBounds, dst *ebiten.Image) {
-	// ghostty は NSView の Metal レイヤーに独立して描画する
+	// NSView の Metal レイヤーが独自に描画するため、ebiten の dst への書き込みは不要
+}
+
+func (t *TerminalWidget) Dispose() {
+	if t.nsViewID != 0 {
+		removeNSView(t.nsViewID)
+		t.nsViewID = 0
+	}
+	if t.surface != nil {
+		t.surface.Free()
+		t.surface = nil
+	}
 }

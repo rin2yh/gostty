@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/ebitengine/purego"
 	"github.com/ebitengine/purego/objc"
@@ -52,11 +51,6 @@ func mainWindowContentView() objc.ID {
 	return win.Send(sel_contentView)
 }
 
-func hasMainWindow() bool {
-	app := objc.ID(class_NSApplication).Send(sel_sharedApplication)
-	return app.Send(sel_mainWindow) != 0
-}
-
 func getContentViewSize() (float64, float64) {
 	cv := mainWindowContentView()
 	if cv == 0 {
@@ -66,23 +60,23 @@ func getContentViewSize() (float64, float64) {
 	return r.Size.Width, r.Size.Height
 }
 
-func createNSView(x, y, w, h float64) unsafe.Pointer {
+func createNSView(x, y, w, h float64) objc.ID {
 	cv := mainWindowContentView()
 	if cv == 0 {
-		return nil
+		return 0
 	}
 	r := nsRect{nsPoint{x, y}, nsSize{w, h}}
 	view := objc.ID(class_NSView).Send(sel_alloc)
 	view = objc.Send[objc.ID](view, sel_initWithFrame, r)
 	view.Send(sel_setWantsLayer, true)
 	cv.Send(sel_addSubview, view)
-	return unsafe.Pointer(uintptr(view))
+	return view
 }
 
-func updateNSViewFrame(ptr unsafe.Pointer, x, y, w, h float64) {
-	objc.ID(uintptr(ptr)).Send(sel_setFrame, nsRect{nsPoint{x, y}, nsSize{w, h}})
+func updateNSViewFrame(view objc.ID, x, y, w, h float64) {
+	view.Send(sel_setFrame, nsRect{nsPoint{x, y}, nsSize{w, h}})
 }
 
-func removeNSView(ptr unsafe.Pointer) {
-	objc.ID(uintptr(ptr)).Send(sel_removeFromSuperview)
+func removeNSView(view objc.ID) {
+	view.Send(sel_removeFromSuperview)
 }

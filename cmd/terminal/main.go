@@ -52,6 +52,7 @@ func main() {
 	root := &Root{}
 	root.terminal.wakeupCh = wakeupCh
 	root.terminal.app = app
+	defer root.terminal.Dispose()
 
 	op := &guigui.RunOptions{
 		Title:         "gostty",
