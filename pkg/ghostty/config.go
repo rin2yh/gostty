@@ -3,7 +3,10 @@ package ghostty
 // #include "ghostty.h"
 // #include <stdlib.h>
 import "C"
-import "unsafe"
+import (
+	"errors"
+	"unsafe"
+)
 
 // Config wraps ghostty_config_t.
 type Config struct {
@@ -11,12 +14,12 @@ type Config struct {
 }
 
 // NewConfig creates a new ghostty configuration.
-func NewConfig() *Config {
+func NewConfig() (*Config, error) {
 	ptr := C.ghostty_config_new()
 	if ptr == nil {
-		return nil
+		return nil, errors.New("ghostty_config_new failed")
 	}
-	return &Config{ptr: ptr}
+	return &Config{ptr: ptr}, nil
 }
 
 // LoadDefaultFiles loads the default ghostty configuration files.
@@ -38,6 +41,9 @@ func (c *Config) Finalize() {
 
 // Free releases the configuration resources.
 func (c *Config) Free() {
+	if c.ptr == nil {
+		return
+	}
 	C.ghostty_config_free(c.ptr)
 	c.ptr = nil
 }

@@ -15,9 +15,12 @@ func ghosttyGoWakeupCB(userdata unsafe.Pointer) {
 	}
 }
 
+// ghosttyGoActionCB is declared in app.go as taking ghostty_app_t, but the
+// Go export uses unsafe.Pointer. This is intentional: ghostty_app_t is
+// typedef void*, so both map to the same ABI type and are compatible.
+//
 //export ghosttyGoActionCB
 func ghosttyGoActionCB(appPtr unsafe.Pointer, target C.ghostty_target_s, action C.ghostty_action_s) C.bool {
-	// Convert unsafe.Pointer → C.ghostty_app_t (both are void* at runtime).
 	appTyped := *(*C.ghostty_app_t)(unsafe.Pointer(&appPtr))
 	ud := C.ghostty_app_userdata(appTyped)
 	app := appFromHandle(ud)
@@ -65,9 +68,9 @@ func ghosttyGoWriteClipboardCB(userdata unsafe.Pointer, clipboard C.ghostty_clip
 	}
 
 	n := int(count)
-	items := make([]ClipboardContent, n)
+	var items []ClipboardContent
 	if n > 0 {
-		// Treat the C array as a Go slice for iteration.
+		items = make([]ClipboardContent, n)
 		slice := (*[1 << 28]C.ghostty_clipboard_content_s)(unsafe.Pointer(contents))[:n:n]
 		for i, c := range slice {
 			items[i] = ClipboardContent{
@@ -88,28 +91,22 @@ func ghosttyGoCloseSurfaceCB(userdata unsafe.Pointer, processAlive C.bool) {
 	surf.app.callbacks.CloseSurface(surf, bool(processAlive))
 }
 
-// appFromHandle recovers an *App from a void* holding a cgo.Handle value.
-func appFromHandle(userdata unsafe.Pointer) *App {
+// handleValue recovers a *T from a void* holding a cgo.Handle value.
+func handleValue[T any](userdata unsafe.Pointer) *T {
 	if userdata == nil {
 		return nil
 	}
-	h := cgo.Handle(uintptr(userdata))
-	app, ok := h.Value().(*App)
+	v, ok := cgo.Handle(uintptr(userdata)).Value().(*T)
 	if !ok {
 		return nil
 	}
-	return app
+	return v
 }
 
-// surfaceFromHandle recovers a *Surface from a void* holding a cgo.Handle value.
+func appFromHandle(userdata unsafe.Pointer) *App {
+	return handleValue[App](userdata)
+}
+
 func surfaceFromHandle(userdata unsafe.Pointer) *Surface {
-	if userdata == nil {
-		return nil
-	}
-	h := cgo.Handle(uintptr(userdata))
-	surf, ok := h.Value().(*Surface)
-	if !ok {
-		return nil
-	}
-	return surf
+	return handleValue[Surface](userdata)
 }

@@ -75,6 +75,9 @@ func NewSurface(app *App, cfg SurfaceConfig) (*Surface, error) {
 
 // Free releases all resources associated with the surface.
 func (s *Surface) Free() {
+	if s.ptr == nil {
+		return
+	}
 	C.ghostty_surface_free(s.ptr)
 	s.handle.Delete()
 	s.ptr = nil

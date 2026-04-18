@@ -88,6 +88,9 @@ func NewApp(cb RuntimeCallbacks, cfg *Config) (*App, error) {
 
 // Free releases all resources associated with the app.
 func (a *App) Free() {
+	if a.ptr == nil {
+		return
+	}
 	C.ghostty_app_free(a.ptr)
 	a.handle.Delete()
 	a.ptr = nil

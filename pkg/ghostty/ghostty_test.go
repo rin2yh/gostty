@@ -1,10 +1,20 @@
 package ghostty_test
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/rin2yh/gostty/pkg/ghostty"
 )
+
+func TestMain(m *testing.M) {
+	if err := ghostty.Init(); err != nil {
+		fmt.Fprintf(os.Stderr, "ghostty.Init failed: %v\n", err)
+		os.Exit(1)
+	}
+	os.Exit(m.Run())
+}
 
 func TestInit(t *testing.T) {
 	if err := ghostty.Init(); err != nil {
@@ -13,7 +23,6 @@ func TestInit(t *testing.T) {
 }
 
 func TestGetInfo(t *testing.T) {
-	ghostty.Init() //nolint:errcheck
 	info := ghostty.GetInfo()
 	if info.Version == "" {
 		t.Error("GetInfo returned empty version")
@@ -22,11 +31,9 @@ func TestGetInfo(t *testing.T) {
 }
 
 func TestConfigLifecycle(t *testing.T) {
-	ghostty.Init() //nolint:errcheck
-
-	cfg := ghostty.NewConfig()
-	if cfg == nil {
-		t.Fatal("NewConfig returned nil")
+	cfg, err := ghostty.NewConfig()
+	if err != nil {
+		t.Fatalf("NewConfig failed: %v", err)
 	}
 	cfg.LoadDefaultFiles()
 	cfg.Finalize()
@@ -34,11 +41,9 @@ func TestConfigLifecycle(t *testing.T) {
 }
 
 func TestAppLifecycle(t *testing.T) {
-	ghostty.Init() //nolint:errcheck
-
-	cfg := ghostty.NewConfig()
-	if cfg == nil {
-		t.Fatal("NewConfig returned nil")
+	cfg, err := ghostty.NewConfig()
+	if err != nil {
+		t.Fatalf("NewConfig failed: %v", err)
 	}
 	cfg.Finalize()
 	defer cfg.Free()
