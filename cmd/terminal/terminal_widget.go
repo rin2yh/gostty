@@ -208,6 +208,8 @@ func (t *TerminalWidget) initSurface(ctx *guigui.Context) error {
 		ScaleFactor: scale,
 	})
 	if err != nil {
+		removeNSView(t.nsViewID)
+		t.nsViewID = 0
 		return fmt.Errorf("ghostty surface: %w", err)
 	}
 	t.surface = surface
@@ -219,14 +221,14 @@ func (t *TerminalWidget) initSurface(ctx *guigui.Context) error {
 }
 
 func (t *TerminalWidget) Tick(ctx *guigui.Context, wb *guigui.WidgetBounds) error {
-	if t.surface == nil {
-		return nil
-	}
-
 	select {
 	case <-t.wakeupCh:
-		t.app.Tick()
 	default:
+	}
+	t.app.Tick()
+
+	if t.surface == nil {
+		return nil
 	}
 
 	bounds := wb.Bounds()
