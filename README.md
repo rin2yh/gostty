@@ -1,11 +1,11 @@
 # Gostty
 
-ghostty-org/ghostty が提供するターミナルエンジン libghostty を cgo 経由で Go から呼び出し、GUIフレームワーク guigui-gui/guigui で描画することでターミナルを実装するプロジェクトです。
+ghostty-org/ghostty が提供するターミナルエンジン libghostty を cgo 経由で Go から呼び出し、GUIフレームワーク guigui-gui/guigui で描画することでターミナルを実装します。
 
 ## モチベーション
 
-- guigui を実際のアプリケーション開発で使えるか検証したかった
-- Go から ghostty のターミナルエンジンを呼び出してターミナルを構築できるかを検証したかった
+- EbutenigeぷちConfで知ったguigui を使ってみたい
+- Go からlibghosttyを使えるか試してみたい
 
 ## 技術スタック
 - guigui：GUIフレームワーク
